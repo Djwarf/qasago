@@ -1,6 +1,6 @@
 module github.com/djwarf/qasago/examples
 
-go 1.25.1
+go 1.25.3
 
 replace github.com/djwarf/qasago => ../
 

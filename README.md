@@ -11,6 +11,10 @@ A secure Go cryptography utility library providing AES-256-GCM encryption with a
 - **Zero Dependencies**: Uses only Go standard library
 - **Production Ready**: Complete implementation with security best practices
 
+## Requirements
+
+- Go 1.25.3 or higher
+
 ## Installation
 
 ```bash
@@ -26,26 +30,26 @@ import (
     "fmt"
     "log"
 
-    "github.com/djwarf/qasago/utils"
+    "github.com/djwarf/qasago"
 )
 
 func main() {
     // Generate a secure encryption key (do this once and store securely)
-    key, err := utils.GenerateEncryptionKey()
+    key, err := qasago.GenerateEncryptionKey()
     if err != nil {
         log.Fatal(err)
     }
 
     // Encrypt data
     plaintext := "Secret message to encrypt"
-    encrypted, err := utils.Encrypt(plaintext, key)
+    encrypted, err := qasago.Encrypt(plaintext, key)
     if err != nil {
         log.Fatal(err)
     }
     fmt.Printf("Encrypted: %s\n", encrypted)
 
     // Decrypt data
-    decrypted, err := utils.Decrypt(encrypted, key)
+    decrypted, err := qasago.Decrypt(encrypted, key)
     if err != nil {
         log.Fatal(err)
     }
@@ -128,27 +132,27 @@ import (
     "os"
     "log"
 
-    "github.com/yourusername/qasago/utils"
+    "github.com/djwarf/qasago"
 )
 
 func main() {
     // Generate and encode a key for storage
-    key, _ := utils.GenerateEncryptionKey()
-    encodedKey := utils.EncodeKey(key)
+    key, _ := qasago.GenerateEncryptionKey()
+    encodedKey := qasago.EncodeKey(key)
 
     // Store in environment variable
     os.Setenv("ENCRYPTION_KEY", encodedKey)
 
     // Later, retrieve and decode the key
     encodedKey = os.Getenv("ENCRYPTION_KEY")
-    key, err := utils.DecodeKey(encodedKey)
+    key, err := qasago.DecodeKey(encodedKey)
     if err != nil {
         log.Fatal("Invalid encryption key:", err)
     }
 
     // Use the key for encryption/decryption
-    encrypted, _ := utils.Encrypt("sensitive data", key)
-    decrypted, _ := utils.Decrypt(encrypted, key)
+    encrypted, _ := qasago.Encrypt("sensitive data", key)
+    decrypted, _ := qasago.Decrypt(encrypted, key)
 }
 ```
 
@@ -161,7 +165,7 @@ import (
     "database/sql"
     "log"
 
-    "github.com/yourusername/qasago/utils"
+    "github.com/djwarf/qasago"
 )
 
 type User struct {
@@ -173,7 +177,7 @@ type User struct {
 
 func SaveUser(db *sql.DB, user User, encryptionKey []byte) error {
     // Encrypt sensitive data before storing
-    encryptedSSN, err := utils.Encrypt(user.EncryptedSSN, encryptionKey)
+    encryptedSSN, err := qasago.Encrypt(user.EncryptedSSN, encryptionKey)
     if err != nil {
         return err
     }
@@ -199,7 +203,7 @@ func GetUser(db *sql.DB, id int, encryptionKey []byte) (*User, error) {
     }
 
     // Decrypt sensitive data after retrieval
-    ssn, err := utils.Decrypt(encryptedSSN, encryptionKey)
+    ssn, err := qasago.Decrypt(encryptedSSN, encryptionKey)
     if err != nil {
         return nil, err
     }
@@ -219,20 +223,20 @@ import (
     "fmt"
     "log"
 
-    "github.com/yourusername/qasago/utils"
+    "github.com/djwarf/qasago"
 )
 
 func main() {
     key := make([]byte, 16) // Wrong size key
 
-    _, err := utils.Encrypt("data", key)
-    if errors.Is(err, utils.ErrInvalidKeySize) {
+    _, err := qasago.Encrypt("data", key)
+    if errors.Is(err, qasago.ErrInvalidKeySize) {
         log.Printf("Key size error: %v", err)
         // Handle invalid key size
     }
 
-    _, err = utils.Decrypt("invalid-base64!", key)
-    if errors.Is(err, utils.ErrInvalidCiphertext) {
+    _, err = qasago.Decrypt("invalid-base64!", key)
+    if errors.Is(err, qasago.ErrInvalidCiphertext) {
         log.Printf("Ciphertext error: %v", err)
         // Handle invalid ciphertext
     }
@@ -254,11 +258,20 @@ func main() {
 ## Performance
 
 - AES-256-GCM is hardware-accelerated on most modern CPUs
+- Encryption: ~500 ns/op with 1728 B/op and 7 allocs/op
+- Decryption: ~386 ns/op with 1536 B/op and 5 allocs/op
 - Base64 encoding adds ~33% overhead to ciphertext size
 - Suitable for encrypting small to medium-sized data (< 1MB)
 - For large files, consider streaming encryption approaches
 
 ## Testing
+
+The library has comprehensive test coverage (89.7%) including:
+- Unit tests for all functions
+- Edge case testing
+- Tamper detection validation
+- Concurrent operation safety
+- Performance benchmarks
 
 Run the test suite:
 
@@ -275,7 +288,7 @@ go test -cover ./...
 Run benchmarks:
 
 ```bash
-go test -bench=. ./...
+go test -bench=. -benchmem ./...
 ```
 
 ## Contributing
