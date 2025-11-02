@@ -12,6 +12,71 @@ import (
     "fmt"                  // Formatted I/O operations
 )
 
+// EncryptionKey represents a 256-bit AES encryption key.
+// It provides type safety and clarity when working with encryption keys.
+type EncryptionKey []byte
+
+// Validate checks if the encryption key is valid for AES-256.
+func (k EncryptionKey) Validate() error {
+    return ValidateEncryptionKey(k)
+}
+
+// String returns the base64-encoded representation of the key.
+func (k EncryptionKey) String() string {
+    return EncodeKey(k)
+}
+
+// Bytes returns the raw byte representation of the key.
+func (k EncryptionKey) Bytes() []byte {
+    return []byte(k)
+}
+
+// CipherText represents encrypted data in base64 format.
+// It contains the nonce, ciphertext, and authentication tag.
+type CipherText string
+
+// String returns the string representation of the ciphertext.
+func (c CipherText) String() string {
+    return string(c)
+}
+
+// PlainText represents unencrypted text data.
+type PlainText string
+
+// String returns the string representation of the plaintext.
+func (p PlainText) String() string {
+    return string(p)
+}
+
+// Config represents encryption configuration options.
+// This type can be extended in the future to support additional encryption modes.
+type Config struct {
+    // Key is the AES-256 encryption key (must be 32 bytes)
+    Key EncryptionKey
+}
+
+// NewConfig creates a new encryption configuration with the provided key.
+func NewConfig(key []byte) (*Config, error) {
+    if err := ValidateEncryptionKey(key); err != nil {
+        return nil, err
+    }
+    return &Config{
+        Key: EncryptionKey(key),
+    }, nil
+}
+
+// Encrypt encrypts plaintext using the configured key.
+func (c *Config) Encrypt(plaintext string) (CipherText, error) {
+    result, err := Encrypt(plaintext, c.Key.Bytes())
+    return CipherText(result), err
+}
+
+// Decrypt decrypts ciphertext using the configured key.
+func (c *Config) Decrypt(ciphertext CipherText) (PlainText, error) {
+    result, err := Decrypt(ciphertext.String(), c.Key.Bytes())
+    return PlainText(result), err
+}
+
 // Constants for encryption configuration
 const (
     // KeySize is the required size for AES-256 encryption (256 bits = 32 bytes)

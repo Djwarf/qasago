@@ -59,6 +59,48 @@ func main() {
 
 ## API Documentation
 
+### Types
+
+#### `EncryptionKey`
+A type-safe representation of a 256-bit AES encryption key with helper methods.
+
+```go
+type EncryptionKey []byte
+```
+
+Methods:
+- `Validate() error` - Validates the key for AES-256 encryption
+- `String() string` - Returns base64-encoded representation
+- `Bytes() []byte` - Returns raw byte representation
+
+#### `CipherText`
+Represents encrypted data in base64 format.
+
+```go
+type CipherText string
+```
+
+#### `PlainText`
+Represents unencrypted text data.
+
+```go
+type PlainText string
+```
+
+#### `Config`
+Encryption configuration for object-oriented usage.
+
+```go
+type Config struct {
+    Key EncryptionKey
+}
+```
+
+Methods:
+- `NewConfig(key []byte) (*Config, error)` - Creates new configuration
+- `Encrypt(plaintext string) (CipherText, error)` - Encrypts using configured key
+- `Decrypt(ciphertext CipherText) (PlainText, error)` - Decrypts using configured key
+
 ### Encryption Functions
 
 #### `Encrypt(plaintext string, key []byte) (string, error)`
@@ -122,6 +164,44 @@ Converts a base64-encoded key back to binary.
   - Error if decoding fails
 
 ## Usage Examples
+
+### Using the Config Type (Object-Oriented Approach)
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "github.com/djwarf/qasago"
+)
+
+func main() {
+    // Generate a key
+    key, _ := qasago.GenerateEncryptionKey()
+
+    // Create a config with the key
+    config, err := qasago.NewConfig(key)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Encrypt data
+    ciphertext, err := config.Encrypt("Secret message")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Decrypt data
+    plaintext, err := config.Decrypt(ciphertext)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    fmt.Printf("Decrypted: %s\n", plaintext)
+}
+```
 
 ### Environment Variable Storage
 
