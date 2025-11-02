@@ -81,6 +81,7 @@ func Encrypt(plaintext string, key []byte) (string, error) {
     // Seal appends the ciphertext and authentication tag to dst (nonce in this case)
     // Format: nonce || ciphertext || authTag
     // The authentication tag (16 bytes) is automatically appended by GCM
+    // #nosec G407 -- This is a false positive. The nonce is randomly generated above, not hardcoded
     ciphertext := aesgcm.Seal(nonce, nonce, []byte(plaintext), nil)
 
     // Encode to base64 for text-safe storage

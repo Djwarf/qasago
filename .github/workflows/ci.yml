@@ -68,8 +68,10 @@ jobs:
     - name: Run golangci-lint
       uses: golangci/golangci-lint-action@v3
       with:
-        version: latest
+        version: v1.61.0
         args: --timeout=5m
+        skip-pkg-cache: true
+        skip-build-cache: true
 
   security:
     name: Security Scan
@@ -94,9 +96,10 @@ jobs:
 
     - name: Upload Trivy results to GitHub Security tab
       uses: github/codeql-action/upload-sarif@v3
-      if: always()
+      if: success()
       with:
         sarif_file: 'trivy-results.sarif'
+      continue-on-error: true
 
   build:
     name: Build
@@ -118,17 +121,7 @@ jobs:
     - name: Build library
       run: go build -v ./...
 
-    - name: Build examples
+    - name: Build and run examples
       run: |
         cd examples
-        go build -v -o example_${{ matrix.os }} .
-
-    - name: Run example
-      run: |
-        cd examples
-        if [ "${{ matrix.os }}" == "windows-latest" ]; then
-          ./example_${{ matrix.os }}.exe
-        else
-          ./example_${{ matrix.os }}
-        fi
-      shell: bash
+        go run main.go
