@@ -39,10 +39,12 @@ jobs:
       run: go mod verify
 
     - name: Run tests
-      run: go test -v -race -coverprofile=coverage.txt -covermode=atomic .
+      run: |
+        go test -v -race -coverprofile=coverage.txt -covermode=atomic github.com/djwarf/qasago
 
     - name: Run benchmarks
-      run: go test -bench=. -benchmem .
+      run: |
+        go test -bench=. -benchmem github.com/djwarf/qasago
 
     - name: Upload coverage to Codecov
       if: matrix.os == 'ubuntu-latest' && matrix.go == '1.25.3'
@@ -118,7 +120,8 @@ jobs:
         go-version: ${{ matrix.go }}
 
     - name: Build library
-      run: go build -v .
+      run: |
+        go build -v github.com/djwarf/qasago
 
     - name: Build and run examples
       run: |
