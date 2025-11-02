@@ -53,6 +53,7 @@ jobs:
         file: ./coverage.txt
         flags: unittests
         name: codecov-umbrella
+        # token: ${{ secrets.CODECOV_TOKEN }} # Optional for public repos, required for private repos
 
   # Linting disabled until golangci-lint supports Go 1.25.3
   # lint:

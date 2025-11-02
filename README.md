@@ -327,13 +327,33 @@ func main() {
 
 1. **Key Storage**: Never hard-code encryption keys in source code. Use environment variables or secure key management systems.
 
-2. **Key Rotation**: Implement key rotation policies for long-term data storage.
+2. **Key Rotation**: Implement key rotation policies for long-term data storage. Example key rotation pattern:
+
+```go
+func rotateEncryptionKey(oldKey, newKey []byte, ciphertext string) (string, error) {
+    // Decrypt with old key
+    plaintext, err := qasago.Decrypt(ciphertext, oldKey)
+    if err != nil {
+        return "", fmt.Errorf("failed to decrypt with old key: %w", err)
+    }
+
+    // Re-encrypt with new key
+    newCiphertext, err := qasago.Encrypt(plaintext, newKey)
+    if err != nil {
+        return "", fmt.Errorf("failed to encrypt with new key: %w", err)
+    }
+
+    return newCiphertext, nil
+}
+```
 
 3. **Nonce Uniqueness**: The library automatically generates unique nonces for each encryption operation.
 
 4. **Authentication**: GCM mode provides built-in authentication, detecting any tampering with the ciphertext.
 
 5. **Error Messages**: The library returns generic error messages for security-sensitive operations to prevent information leakage.
+
+6. **Thread Safety**: All encryption and decryption operations are stateless and thread-safe. Multiple goroutines can safely call `Encrypt()` and `Decrypt()` concurrently without any synchronisation required.
 
 ## Performance
 
@@ -346,7 +366,7 @@ func main() {
 
 ## Testing
 
-The library has comprehensive test coverage (89.7%) including:
+The library has comprehensive test coverage (91.4%) including:
 - Unit tests for all functions
 - Edge case testing
 - Tamper detection validation

@@ -3,7 +3,9 @@ package qasago
 import (
     "bytes"
     "encoding/base64"
+    "fmt"
     "strings"
+    "sync"
     "testing"
 )
 
@@ -329,5 +331,235 @@ func BenchmarkDecrypt(b *testing.B) {
         if err != nil {
             b.Fatal(err)
         }
+    }
+}
+
+// TestConcurrentEncryption verifies thread safety of encryption operations
+func TestConcurrentEncryption(t *testing.T) {
+    t.Parallel()
+
+    key, err := GenerateEncryptionKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    // Number of concurrent goroutines
+    numGoroutines := 100
+    iterations := 100
+
+    var wg sync.WaitGroup
+    wg.Add(numGoroutines)
+
+    errors := make(chan error, numGoroutines*iterations)
+
+    for i := 0; i < numGoroutines; i++ {
+        go func(routineNum int) {
+            defer wg.Done()
+
+            for j := 0; j < iterations; j++ {
+                // Each goroutine encrypts unique data
+                plaintext := fmt.Sprintf("Goroutine %d, iteration %d: test data", routineNum, j)
+
+                // Encrypt
+                ciphertext, err := Encrypt(plaintext, key)
+                if err != nil {
+                    errors <- fmt.Errorf("encryption failed in goroutine %d: %w", routineNum, err)
+                    continue
+                }
+
+                // Decrypt and verify
+                decrypted, err := Decrypt(ciphertext, key)
+                if err != nil {
+                    errors <- fmt.Errorf("decryption failed in goroutine %d: %w", routineNum, err)
+                    continue
+                }
+
+                if decrypted != plaintext {
+                    errors <- fmt.Errorf("data mismatch in goroutine %d: got %q, want %q", routineNum, decrypted, plaintext)
+                }
+            }
+        }(i)
+    }
+
+    wg.Wait()
+    close(errors)
+
+    // Check for any errors
+    var errCount int
+    for err := range errors {
+        t.Error(err)
+        errCount++
+        if errCount >= 10 {
+            t.Fatal("Too many concurrent errors, stopping test")
+        }
+    }
+}
+
+// TestConcurrentMixedOperations tests concurrent encrypt and decrypt operations
+func TestConcurrentMixedOperations(t *testing.T) {
+    t.Parallel()
+
+    key, err := GenerateEncryptionKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    // Pre-encrypt some data for decryption tests
+    testData := make(map[string]string)
+    for i := 0; i < 50; i++ {
+        plaintext := fmt.Sprintf("Test data %d", i)
+        ciphertext, err := Encrypt(plaintext, key)
+        if err != nil {
+            t.Fatal(err)
+        }
+        testData[ciphertext] = plaintext
+    }
+
+    var wg sync.WaitGroup
+    errors := make(chan error, 1000)
+
+    // Start encryption goroutines
+    for i := 0; i < 50; i++ {
+        wg.Add(1)
+        go func(id int) {
+            defer wg.Done()
+            for j := 0; j < 20; j++ {
+                plaintext := fmt.Sprintf("Encrypt goroutine %d, iteration %d", id, j)
+                _, err := Encrypt(plaintext, key)
+                if err != nil {
+                    errors <- fmt.Errorf("encryption failed: %w", err)
+                }
+            }
+        }(i)
+    }
+
+    // Start decryption goroutines
+    for ciphertext, expectedPlaintext := range testData {
+        wg.Add(1)
+        go func(ct, expected string) {
+            defer wg.Done()
+            for j := 0; j < 20; j++ {
+                decrypted, err := Decrypt(ct, key)
+                if err != nil {
+                    errors <- fmt.Errorf("decryption failed: %w", err)
+                } else if decrypted != expected {
+                    errors <- fmt.Errorf("decryption mismatch: got %q, want %q", decrypted, expected)
+                }
+            }
+        }(ciphertext, expectedPlaintext)
+    }
+
+    wg.Wait()
+    close(errors)
+
+    // Check for errors
+    for err := range errors {
+        t.Error(err)
+    }
+}
+
+// TestLargeData tests encryption and decryption of data larger than 1MB
+func TestLargeData(t *testing.T) {
+    key, err := GenerateEncryptionKey()
+    if err != nil {
+        t.Fatal(err)
+    }
+
+    testCases := []struct {
+        name string
+        size int
+    }{
+        {"1MB", 1024 * 1024},           // 1MB
+        {"5MB", 5 * 1024 * 1024},       // 5MB
+        {"10MB", 10 * 1024 * 1024},     // 10MB
+    }
+
+    for _, tc := range testCases {
+        t.Run(tc.name, func(t *testing.T) {
+            // Generate large plaintext data
+            largeData := make([]byte, tc.size)
+            for i := range largeData {
+                largeData[i] = byte('A' + (i % 26))
+            }
+            plaintext := string(largeData)
+
+            // Encrypt
+            ciphertext, err := Encrypt(plaintext, key)
+            if err != nil {
+                t.Fatalf("Failed to encrypt %s data: %v", tc.name, err)
+            }
+
+            // Verify ciphertext is larger due to base64 encoding and GCM tag
+            expectedMinSize := tc.size * 4 / 3 // Base64 overhead
+            if len(ciphertext) < expectedMinSize {
+                t.Errorf("Ciphertext too small for %s: got %d, expected at least %d", tc.name, len(ciphertext), expectedMinSize)
+            }
+
+            // Decrypt
+            decrypted, err := Decrypt(ciphertext, key)
+            if err != nil {
+                t.Fatalf("Failed to decrypt %s data: %v", tc.name, err)
+            }
+
+            // Verify data integrity
+            if len(decrypted) != len(plaintext) {
+                t.Errorf("Data size mismatch for %s: got %d, want %d", tc.name, len(decrypted), len(plaintext))
+            }
+
+            if decrypted != plaintext {
+                t.Errorf("Data content mismatch for %s", tc.name)
+            }
+        })
+    }
+}
+
+// BenchmarkLargeData benchmarks encryption/decryption of large data
+func BenchmarkLargeData(b *testing.B) {
+    key, _ := GenerateEncryptionKey()
+
+    sizes := []int{
+        1024,              // 1KB
+        10 * 1024,         // 10KB
+        100 * 1024,        // 100KB
+        1024 * 1024,       // 1MB
+    }
+
+    for _, size := range sizes {
+        sizeName := fmt.Sprintf("%dKB", size/1024)
+        if size >= 1024*1024 {
+            sizeName = fmt.Sprintf("%dMB", size/(1024*1024))
+        }
+
+        // Generate test data
+        data := make([]byte, size)
+        for i := range data {
+            data[i] = byte(i % 256)
+        }
+        plaintext := string(data)
+
+        b.Run("Encrypt_"+sizeName, func(b *testing.B) {
+            b.SetBytes(int64(size))
+            b.ResetTimer()
+            for i := 0; i < b.N; i++ {
+                _, err := Encrypt(plaintext, key)
+                if err != nil {
+                    b.Fatal(err)
+                }
+            }
+        })
+
+        // Pre-encrypt for decryption benchmark
+        ciphertext, _ := Encrypt(plaintext, key)
+
+        b.Run("Decrypt_"+sizeName, func(b *testing.B) {
+            b.SetBytes(int64(size))
+            b.ResetTimer()
+            for i := 0; i < b.N; i++ {
+                _, err := Decrypt(ciphertext, key)
+                if err != nil {
+                    b.Fatal(err)
+                }
+            }
+        })
     }
 }
